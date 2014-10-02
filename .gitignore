@@ -1,3 +1,17 @@
+localPreferences.txt
+
+# Exclude image files...
+*.png
+*.bmp
+*.jpg
+*.jpeg
+# ...except those that we'd like all users to have
+!default*.png
+!default*.bmp
+!default*.jpg
+!default*.jpeg
+
+
 .DS_Store
 applet
 application.linux32
