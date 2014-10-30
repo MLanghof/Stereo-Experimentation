@@ -1,0 +1,111 @@
+﻿Old recting coordinate algorithm
+################################
+Upper {lower} left (right) corner of the left [right] camera at z = zF:
+  float phi1 = -(+)openX / 2.0 +[-] delta;
+  float l = zF / cos(phi1);
+  float cz = l * cos(openX / 2.0);  
+  px = sin(phi1) * l -[+] xC;
+  py = +{-}float(camYRes/2) / camF * cz;
+  pz = l * cos(phi1);
+
+
+Matrix usage (currently done more directly)
+###########################################
+
+  camLMat = new processing.core.PMatrix3D();
+  camRMat = new processing.core.PMatrix3D(); // Calibration matrices can be inserted here!
+
+  camLMat.reset();
+  camLMat.rotateY( delta);
+  camLMat.translate( xC, 0, 0);
+  camRMat.reset();
+  camRMat.rotateY(-delta);
+  camRMat.translate(-xC, 0, 0);
+
+// Transforms a point in room space into a point in the camera coordinate system.
+float roomToCamX(float rx, float ry, float rz, boolean left)
+{
+  return (left ? camLMat : camRMat).multX(rx, ry, rz);
+}
+(etc. for Y and Z)
+
+float camXZToA(float cx, float cz)
+{
+  return -cx / cz * camF + camXRes / 2.0; // cz is negative, that's where that - comes from...
+}
+float camYZToB(float cy, float cz)
+{
+  return -cy / cz * camF + camYRes / 2.0;
+}
+
+
+Camera live capture
+###################
+
+import processing.video.*;
+
+Capture camera;
+
+    // We're going live!
+    camera = new Capture(this, 320, 240, "Hercules Deluxe Optical Glass_2", 30);
+    camera.start();
+
+
+void updateDisplays()
+{
+  if (cameraMode)
+  {
+    if (camera.available())
+      camera.read();
+      
+    PImage image = capturingLeft ? imageLeft : imageRight;
+    image.loadPixels();
+    camera.loadPixels();
+    arrayCopy(camera.pixels, image.pixels);
+    image.updatePixels();
+  }
+}
+
+
+
+import processing.video.*;
+
+Capture cam1;
+Capture cam2;
+
+boolean started2 = false;
+
+void setup () {
+  size (1280, 480);
+  // Größe und Bildanzahl pro Sekunde für
+  // den Kamara-Input festlegen
+  cam1 = new Capture(this, 640, 480, "Hercules Deluxe Optical Glass_1", 30);
+  cam2 = new Capture(this, 640, 480, "Hercules Deluxe Optical Glass_2", 30);
+  
+  /*String[] list = Capture.list();
+  for (int i = 0; i < list.length; i++)
+    print(list[i] + "\n");*/
+    
+  cam1.start();
+}
+ 
+void draw () {
+  if (cam1.available ()) {
+    cam1.read ();
+  }
+  if (cam2.available ()) {
+    cam2.read ();
+  }
+  
+  image (cam1, 0, 0);
+  image (cam2, 640, 0);
+}
+
+void mousePressed()
+{
+    if (!started2)
+    {
+      cam2.start();
+      started2 = true;
+    }
+}
