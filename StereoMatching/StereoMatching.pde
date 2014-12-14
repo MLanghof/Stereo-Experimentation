@@ -1,8 +1,14 @@
+import java.nio.charset.Charset;
+import java.util.zip.*;
 // This GUI library made things a lot easier.
 import g4p_controls.*;
 
 // I'd recommend increasing the width of the processing window
 // if you plan on reading this code further. Just saying.
+
+
+StereoMatcher sm;
+
 
 // ccd Dimensions taken from one of the cameras whose pictures are used for tests.
 // Many explanatory sketches in http://1drv.ms/ZmQgnp
@@ -83,14 +89,10 @@ int psHeight = 5;
 float psXCount = camXRes / psWidth;
 float psYCount = camYRes / psHeight;
 
-// Contains original image data
-ProjectionScreen pScreenL, pScreenR;
-RectedScreen rScreenL, rScreenR;
 // Pipe contains luminance and luminance gradients (vertical/horizontal)
 ProjectionScreen pPipeL, pPipeR;
 RectedScreen rPipeL, rPipeR;
 
-boolean[] coveredParallaxes;
 
 boolean backgroundSetupDone = false;
 boolean closeSplashScreen = false;
@@ -148,27 +150,24 @@ void calculationPipeline()
     imageRight.set(0, 0, rawImageRight);
   }
   
-  // Operations are only exectued if needed
+  // This is not the rendering itself: The calculations are skipped if the result won't be rendered this frame.
   if (showScreens())
   {
-    pScreenL.setImage(imageLeft);
-    pScreenR.setImage(imageRight);
+    sm.pScreenL.setImage(imageLeft);
+    sm.pScreenR.setImage(imageRight);
   }
   if (showRected())
   {
-    rScreenL.rectangulateSourceGL();
-    rScreenR.rectangulateSourceGL();
-    // Well, i guess non-GL rectangulation is no longer a thing?
-    //rectifyImages(rectedLeft, true);
-    //rectifyImages(rectedRight, false);
+    sm.rScreenL.rectangulateSourceGL();
+    sm.rScreenR.rectangulateSourceGL();
   }
   
   // Actual processing
   if (frameCount % 5 == 0)
   {
     int parallax = distanceToParallax(zF * sdRectDist.getValueF(),
-                                       rScreenL, rScreenR);
-    fixedDistanceConvolution(parallax, rScreenL, rScreenR);
+                                       sm.rScreenL, sm.rScreenR);
+    sm.fixedDistanceConvolution(parallax);
   }
 }
 
@@ -278,8 +277,8 @@ void displayThings()
   if (showScreens())
   {
     if (!rightOnly())
-      pScreenL.drawTo(g, sdScreenDist.getValueF());
-    pScreenR.drawTo(g, sdScreenDist.getValueF());
+      sm.pScreenL.drawTo(g, sdScreenDist.getValueF());
+    sm.pScreenR.drawTo(g, sdScreenDist.getValueF());
   }
 
   // Show the "rectified" images on screen
@@ -289,81 +288,25 @@ void displayThings()
     tint(color(showDiffHori() ? 255 : 0, showDiffVert() ? 255 : 0, showBrightness() ? 255 : 0));
     float rectScreenDist = (sdRectDist.getValueF()) * zF;
     if (!rightOnly())
-      rScreenL.drawTo(g, rectScreenDist);
-    rScreenR.drawTo(g, rectScreenDist);
+      sm.rScreenL.drawTo(g, rectScreenDist);
+    sm.rScreenR.drawTo(g, rectScreenDist);
     noTint();
     
     // This is how we get the data to the convolution algorithm
-    rScreenL.canvas.loadPixels();
-    rScreenR.canvas.loadPixels();
-    arrayCopy(rScreenL.canvas.pixels, dataL);
-    arrayCopy(rScreenR.canvas.pixels, dataR);
+    sm.rScreenL.canvas.loadPixels();
+    sm.rScreenR.canvas.loadPixels();
+    arrayCopy(sm.rScreenL.canvas.pixels, dataL);
+    arrayCopy(sm.rScreenR.canvas.pixels, dataR);
   }
   
-  if (showConvPoints() && (convolutionPoints != null))
-    shape(convolutionPoints);
+  if (showConvPoints() && (sm.convolutionPoints != null))
+    shape(sm.convolutionPoints);  
   if (showTestPoint() && (vectors != null))
     shape(vectors);
   
   popStyle(); // Just to make sure...
 }
 
-PShape convolutionPoints;
-
-void fixedDistanceConvolution(int parallax, RectedScreen r1, RectedScreen r2)
-{
-  ConvolutionKernel k = ConvolutionKernel.Gauss33;
-  int n = k.n;
-  int xRes = r1.xRes; // I'll save myself the bunch of assertions.
-  int yRes = r1.yRes;
-  
-  int now = millis();
-  if (abs(parallax) >= xRes - n) return;
-  float distance = parallaxToDistance(parallax, r1, r2);
-  
-  // Parallax can still be negative
-  int limit1 = max(parallax + n, n); // Needs to be > n
-  int limit2 = min(xRes - n + parallax, xRes - n); // Do not exceed camXRes - n
-  convolutionPoints.beginShape(POINTS);
-  convolutionPoints.strokeWeight(2);
-  convolutionPoints.stroke(255);
-  for (int b = n; b < yRes - n; b += 1) // Rows first for better cache effects
-    for (int a = limit1; a < limit2; a += 1)
-    {
-      float score = 0;
-      if (!coveredParallaxes[parallax])
-      {
-        score = convolute(xRes, a, b, a-parallax, b, k);
-        if (score > 5)
-        {
-            convolutionPoints.stroke(score*10);
-            convolutionPoints.vertex(rScreenL.roomX(a, distance),
-                                     -rScreenL.roomY(b, distance),
-                                     -distance + 2); // Reducing z fighting a bit
-        }
-      }
-      
-      if ((a == pa) && (b == pb))
-      {
-        vectors = createShape();
-        vectors.beginShape(LINES);
-        vectors.strokeWeight(1);
-        if (!rightOnly())
-        {
-          vectors.stroke(0, 0, 255, 128);
-          drawVectors(a, b, distance, rScreenL, dataL, n);
-        }
-        vectors.stroke(255, 0, 0, 128);
-        drawVectors(a-parallax, b, distance, rScreenR, dataR, n);
-        vectors.endShape();
-        println("Matching score at test point: " + str(score));
-      }
-    }
-  convolutionPoints.endShape();
-  println("Convolution with parallax " + str(parallax) +
-    " took " + str(millis() - now) + " ms");
-  coveredParallaxes[parallax] = true;
-}
 
 PShape vectors;
 
@@ -383,13 +326,12 @@ void drawVectors(int a, int b, float distance, RectedScreen screen, color[] data
     }
 }
 
-
+//*
 // Takes rScreenL and rScreenR as well as a parallax.
-// convKernel33
 // At zF we have 0 parallax.
 // Where do we have width parallax (images touching each other)?
 // xC/(xC+rW2) * zF
-// Between that it's linear... No, it's not. At dist=0 the parallax is infinite. Mind that the images get smaller...
+// Between that, it's NOT linear, because the images also get smaller: At dist=0 the parallax is infinite.
 // Parallax is aL - aR
 float parallaxToDistance(int parallax, RectedScreen r1, RectedScreen r2)
 {
@@ -403,6 +345,7 @@ int distanceToParallax(float distance, RectedScreen r1, RectedScreen r2)
   assert(r1.F == r2.F);
   return round(((r2.px - r1.px) / distance + tan(r1.delta) - tan(r2.delta)) * r1.F); 
 }
+//*/
 
 void mouseDragged() {
   if (mouseButton == LEFT)

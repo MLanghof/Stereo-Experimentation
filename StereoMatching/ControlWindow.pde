@@ -70,8 +70,8 @@ void createControlWindow()
   
   y += 10;
   sdABChooser = new GSlider2D(app, x1, y, 160, 120);
-  sdABChooser.setLimitsX(0, 0, rScreenL.xRes);
-  sdABChooser.setLimitsY(0, 0, rScreenL.yRes);
+  sdABChooser.setLimitsX(0, 0, sm.rScreenL.xRes);
+  sdABChooser.setLimitsY(0, 0, sm.rScreenL.yRes);
   y += 120;
   lbABChooserA = new GLabel(app, x1, y, 160, 18, "Test point: a = 0");
   lbABChooserB = new GLabel(app, x1+110, y-70, 120, 18, "b = 0");
@@ -147,8 +147,8 @@ public void handleSliderEvents(GValueControl slider, GEvent event)
   if (slider == sdRectDist)
   {
     pz = sdRectDist.getValueF() * zF;
-    px = rScreenL.roomX(pa, pz);
-    py = rScreenL.roomY(pb, pz);
+    px = sm.rScreenL.roomX(pa, pz);
+    py = sm.rScreenL.roomY(pb, pz);
   }
 }
 
@@ -161,8 +161,8 @@ public void handleSlider2DEvents(GSlider2D slider2d, GEvent event)
     lbABChooserA.setText("Test Point: a = " + str(pa));
     lbABChooserB.setText("b = " + str(pb));
     pz = sdRectDist.getValueF() * zF;
-    px = rScreenL.roomX(pa, pz);
-    py = rScreenL.roomY(pb, pz);
+    px = sm.rScreenL.roomX(pa, pz);
+    py = sm.rScreenL.roomY(pb, pz);
   }
 }
 
@@ -170,8 +170,8 @@ public void handleButtonEvents(GButton button, GEvent event)
 {
   if (button == bnResetConvo)
   {
-    convolutionPoints = createShape();
-    coveredParallaxes = new boolean[rScreenL.xRes];
+    sm.convolutionPoints = createShape();
+    sm.coveredParallaxes = new boolean[sm.rScreenL.xRes];
   }
 }
 

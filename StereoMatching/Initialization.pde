@@ -71,19 +71,14 @@ boolean BackgroundSetupFunction()
   rawDiffLeft  = createImage(camXRes, camYRes, ARGB);
   rawDiffRight = createImage(camXRes, camYRes, ARGB);
   
-  // Projection screens
-  pScreenL = new ProjectionScreen(camXRes, camYRes, openY);
-  pScreenL.setProjection(-xC, 0, 0, -delta);
-  pScreenR = new ProjectionScreen(camXRes, camYRes, openY);
-  pScreenR.setProjection( xC, 0, 0,  delta);
-  // Rected screens
-  int scale = 2;
-  rScreenL = new RectedScreen(pScreenL, camXRes/scale, camYRes/scale);
-  rScreenR = new RectedScreen(pScreenR, camXRes/scale, camYRes/scale);
   
-  // Temporary solution to have the pixel values available without the constant need for loadPixels()
-  dataL = new color[camXRes/scale * camYRes/scale];
-  dataR = new color[camXRes/scale * camYRes/scale];
+  // TODO: CREATE INPUTS
+  StaticImageInput inputLeft  = new StaticImageInput(ccdWidth, ccdHeight, ccdF, -xC, -delta, imageLeft);
+  StaticImageInput inputRight = new StaticImageInput(ccdWidth, ccdHeight, ccdF,  xC,  delta, imageRight);
+  
+  
+  sm = new StereoMatcher(inputLeft, inputRight);
+  
   
   // Some graphics setups
   textureMode(NORMAL);
@@ -132,8 +127,6 @@ boolean BackgroundSetupFunction()
   
   createControlWindow();
   
-  convolutionPoints = createShape();
-  coveredParallaxes = new boolean[rScreenL.xRes];
   
   
   backgroundSetupDone = true;

@@ -25,6 +25,7 @@ abstract class ScreenBase
     // ->"Camera projection terminology"
     F = yRes / tan(openY / 2.0) / 2.0;
     openX = 2.0 * atan(xRes / F / 2.0);
+    // Note that this way the image will have the same pixel "density" in both dimensions.
     
     output = createImage(xRes, yRes, ARGB);
     canvas = createGraphics(xRes, yRes, P3D);
